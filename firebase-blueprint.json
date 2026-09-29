@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "LecturaDocument": {
+      "title": "LecturaDocument",
+      "description": "Documento correspondiente a una fila de datos de la hoja Lectura con la fecha de corte",
+      "type": "object",
+      "properties": {
+        "fila": { "type": "number" },
+        "fecha": { "type": "string" },
+        "fechaOriginal": { "type": "string" },
+        "valor": { "type": "string" }
+      },
+      "required": ["fecha", "fechaOriginal", "fila"]
+    },
+    "AgendaDocument": {
+      "title": "AgendaDocument",
+      "description": "Documento correspondiente a una fila de datos de la hoja Agendas",
+      "type": "object",
+      "properties": {
+        "fila": { "type": "number" },
+        "dpto": { "type": "string" },
+        "caps": { "type": "string" },
+        "fecha": { "type": "string" },
+        "fechaOriginal": { "type": "string" },
+        "turno": { "type": "string" },
+        "especialidad": { "type": "string" },
+        "profesional": { "type": "string" },
+        "turnos": { "type": "number" }
+      },
+      "required": ["dpto", "caps", "fecha", "fechaOriginal", "turno", "especialidad", "profesional", "turnos", "fila"]
+    },
+    "SyncMeta": {
+      "title": "SyncMeta",
+      "description": "Metadatos de versionado para sincronización en memoria local",
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "totalAgendas": { "type": "number" },
+        "totalLectura": { "type": "number" },
+        "fileName": { "type": "string" }
+      },
+      "required": ["version", "updatedAt", "totalAgendas", "totalLectura"]
+    }
+  },
+  "firestore": {
+    "/Lectura/{docId}": {
+      "schema": "LecturaDocument",
+      "description": "Colección de documentos de la hoja Lectura"
+    },
+    "/Agendas/{docId}": {
+      "schema": "AgendaDocument",
+      "description": "Colección de documentos de la hoja Agendas con un documento por fila"
+    },
+    "/_meta/{docId}": {
+      "schema": "SyncMeta",
+      "description": "Metadatos y versionado de la base de datos para sincronización local"
+    }
+  }
+}
+

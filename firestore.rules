@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Colección correspondiente a la hoja Lectura
+    match /Lectura/{docId} {
+      allow read, write: if isValidId(docId);
+    }
+
+    // Colección correspondiente a la hoja Agendas (un documento por fila)
+    match /Agendas/{docId} {
+      allow read, write: if isValidId(docId);
+    }
+
+    // Metadatos de sincronización y versión
+    match /_meta/{docId} {
+      allow read, write: if isValidId(docId);
+    }
+
+    // Soporte retrocompatible para datasets previos
+    match /datasets/{datasetId} {
+      allow read, write: if isValidId(datasetId);
+
+      match /chunks/{chunkId} {
+        allow read, write: if isValidId(datasetId) && isValidId(chunkId);
+      }
+    }
+
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
+

@@ -1,0 +1,6 @@
+{
+  "name": "Gestión de Agendas Futuras",
+  "description": "Visualización y análisis interactivo de turnos de Agendas Futuras sincronizado en tiempo real desde Google Sheets, con dos calendarios, filtros dinámicos y reportes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
