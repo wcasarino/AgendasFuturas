@@ -28,6 +28,7 @@ export interface FilterState {
   dpto: string;
   caps: string;
   canal: string; // 'Todos' | 'Sólo H.' | 'Bot' | 'Call' | 'Todos los Canales'
+  incluyeTodos?: boolean;
   especialidad: string;
   profesional: string;
   estado?: string; // Optional filter by Estado ('Libre', 'Asignado', etc.)

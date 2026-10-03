@@ -47,6 +47,7 @@ export default function App() {
     dpto: '',
     caps: '',
     canal: 'Sólo H.',
+    incluyeTodos: false,
     especialidad: '',
     profesional: '',
     search: '',
@@ -184,6 +185,7 @@ export default function App() {
         dpto: '',
         caps: '',
         canal: 'Sólo H.',
+        incluyeTodos: false,
         especialidad: '',
         profesional: '',
         search: '',
@@ -274,6 +276,7 @@ export default function App() {
       dpto: '',
       caps: '',
       canal: 'Sólo H.',
+      incluyeTodos: false,
       especialidad: '',
       profesional: '',
       search: '',
@@ -371,22 +374,26 @@ export default function App() {
       dpto: '',
       caps: '',
       canal: 'Sólo H.',
+      incluyeTodos: false,
       especialidad: '',
       profesional: '',
       search: '',
     });
   };
 
-  // Helper to extract turnos for an item according to the active Canal
-  const getTurnosByCanal = (item: AgendaItem, canal: string): number => {
+  // Helper to extract turnos for an item according to the active Canal and optional incluyeTodos
+  const getTurnosByCanal = (item: AgendaItem, canal: string, incluyeTodos = false): number => {
+    const isEligible = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(canal);
+    const addTodos = isEligible && incluyeTodos ? (item.todos ?? 0) : 0;
+
     switch (canal) {
       case 'Sólo H.':
       case 'Solo H.':
-        return item.soloH ?? 0;
+        return (item.soloH ?? 0) + addTodos;
       case 'Bot':
-        return item.bot ?? 0;
+        return (item.bot ?? 0) + addTodos;
       case 'Call':
-        return item.call ?? 0;
+        return (item.call ?? 0) + addTodos;
       case 'Todos los Canales':
         return (item.todos ?? 0) + (item.soloH ?? 0) + (item.bot ?? 0) + (item.call ?? 0);
       case 'Todos':
@@ -407,9 +414,9 @@ export default function App() {
       })
       .map(item => ({
         ...item,
-        turnos: getTurnosByCanal(item, filters.canal || 'Todos'),
+        turnos: getTurnosByCanal(item, filters.canal || 'Sólo H.', filters.incluyeTodos),
       }));
-  }, [allAgendas, filters.dpto, filters.caps, filters.canal, filters.especialidad, filters.profesional]);
+  }, [allAgendas, filters.dpto, filters.caps, filters.canal, filters.incluyeTodos, filters.especialidad, filters.profesional]);
 
   // Aggregate turnos by date string from filteredAgendas (calendar reacts to active filters)
   const turnosByDateMap = useMemo(() => {
@@ -673,7 +680,11 @@ export default function App() {
             setSelectedDate(lectura.fecha);
           }}
           isCustomOffset={monthOffset !== 0}
-          activeCanal={filters.canal || 'Todos'}
+          activeCanal={`${filters.canal || 'Sólo H.'}${
+            filters.incluyeTodos && ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(filters.canal || '')
+              ? ' (+ Todos)'
+              : ''
+          }`}
         />
 
         {/* Detailed Drilldown Table */}

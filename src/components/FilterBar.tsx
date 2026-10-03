@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, X, RotateCcw, Building2, Hospital, Radio, Stethoscope, UserCheck } from 'lucide-react';
+import { Filter, X, RotateCcw, Building2, Hospital, Radio, Stethoscope, UserCheck, CheckSquare } from 'lucide-react';
 import { AgendaItem, FilterState } from '../types';
 
 interface FilterBarProps {
@@ -136,13 +136,24 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       }
     }
 
+    // 5. If CANAL was changed and is not eligible for 'Incluye Todos', turn off incluyeTodos
+    if ('canal' in newPartial) {
+      const isNewEligible = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(newPartial.canal || '');
+      if (!isNewEligible) {
+        merged.incluyeTodos = false;
+      }
+    }
+
     onFilterChange(merged);
   };
+
+  const isEligibleCanal = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(filters.canal || '');
 
   const activeCount = [
     filters.dpto,
     filters.caps,
-    filters.canal && filters.canal !== 'Todos' ? filters.canal : '',
+    filters.canal && filters.canal !== 'Sólo H.' ? filters.canal : '',
+    filters.incluyeTodos && isEligibleCanal ? 'incluyeTodos' : '',
     filters.especialidad,
     filters.profesional,
   ].filter(Boolean).length;
@@ -183,8 +194,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
-      {/* Filter Select Controls Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* Filter Select Controls Grid with MODALIDAD at half width (0.5fr) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_0.5fr_1fr_1fr] gap-2.5 sm:gap-3">
         
         {/* DPTO */}
         <div>
@@ -260,6 +271,62 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <option value="Todos">Todos</option>
             <option value="Todos los Canales">Todos los Canales (Suma Total)</option>
           </select>
+        </div>
+
+        {/* Casilla de verificación: Incluye Todos (Mitad de ancho 0.5fr) */}
+        <div className="min-w-0">
+          <label
+            className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1 truncate"
+            title="MODALIDAD"
+          >
+            <CheckSquare className={`w-3 h-3 shrink-0 ${isEligibleCanal ? 'text-blue-500' : 'text-slate-400'}`} />
+            <span className="truncate">MODALIDAD</span>
+          </label>
+          <div
+            onClick={() => {
+              if (isEligibleCanal) {
+                handleSelectChange({ incluyeTodos: !filters.incluyeTodos });
+              }
+            }}
+            title={
+              !isEligibleCanal
+                ? 'Disponible solo para los canales Sólo H., Bot o Call'
+                : 'Suma los turnos Asignados y Libres del canal Todos a este canal'
+            }
+            className={`flex items-center justify-center gap-1.5 h-[38px] px-1.5 sm:px-2 rounded-lg border transition-all ${
+              !isEligibleCanal
+                ? 'bg-slate-100/70 border-slate-200 text-slate-400 cursor-not-allowed select-none'
+                : filters.incluyeTodos
+                ? 'border-blue-500 bg-blue-50/80 text-blue-950 font-bold shadow-2xs cursor-pointer'
+                : 'border-slate-300 bg-slate-50/50 text-slate-700 hover:border-slate-400 cursor-pointer'
+            }`}
+          >
+            <input
+              type="checkbox"
+              id="filter-incluye-todos"
+              disabled={!isEligibleCanal}
+              checked={Boolean(isEligibleCanal && filters.incluyeTodos)}
+              onChange={e => handleSelectChange({ incluyeTodos: e.target.checked })}
+              onClick={e => e.stopPropagation()}
+              className={`w-3.5 h-3.5 shrink-0 rounded text-blue-600 focus:ring-blue-500 border-slate-300 ${
+                !isEligibleCanal ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
+              }`}
+            />
+            <label
+              htmlFor="filter-incluye-todos"
+              onClick={e => e.stopPropagation()}
+              className={`text-[10.5px] leading-[1.1] font-bold select-none cursor-pointer flex flex-col justify-center ${
+                !isEligibleCanal
+                  ? 'cursor-not-allowed text-slate-400'
+                  : filters.incluyeTodos
+                  ? 'text-blue-950'
+                  : 'text-slate-700'
+              }`}
+            >
+              <span>Incluye</span>
+              <span className={filters.incluyeTodos && isEligibleCanal ? 'text-blue-600' : 'text-slate-500 font-semibold'}>Todos</span>
+            </label>
+          </div>
         </div>
 
         {/* Especialidad */}

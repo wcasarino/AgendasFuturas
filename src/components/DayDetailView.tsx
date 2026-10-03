@@ -131,8 +131,25 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({
       row.totalRow = row.totalA + row.totalL;
     });
 
+    // If 'incluyeTodos' is active on an eligible channel, add canal Todos (A and L) to that channel
+    const isEligibleCanal = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(filters.canal || '');
+    if (isEligibleCanal && filters.incluyeTodos) {
+      map.forEach(row => {
+        if (filters.canal === 'Sólo H.' || filters.canal === 'Solo H.') {
+          row.soloHA += row.todosA;
+          row.soloHL += row.todosL;
+        } else if (filters.canal === 'Bot') {
+          row.botA += row.todosA;
+          row.botL += row.todosL;
+        } else if (filters.canal === 'Call') {
+          row.callA += row.todosA;
+          row.callL += row.todosL;
+        }
+      });
+    }
+
     return Array.from(map.values());
-  }, [activeItems, isSingleDay]);
+  }, [activeItems, isSingleDay, filters.canal, filters.incluyeTodos]);
 
   // Global summary of the current view
   const globalSummary = useMemo(() => {
@@ -317,24 +334,42 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({
           </div>
 
           {/* Sólo H. */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
-            <span className="font-bold text-slate-700">Sólo H.:</span>
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs ${
+            filters.incluyeTodos && (filters.canal === 'Sólo H.' || filters.canal === 'Solo H.')
+              ? 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-300'
+              : 'bg-white border-slate-200'
+          }`}>
+            <span className="font-bold text-slate-700">
+              Sólo H.{filters.incluyeTodos && (filters.canal === 'Sólo H.' || filters.canal === 'Solo H.') ? ' (+ Todos)' : ''}:
+            </span>
             <span className="font-bold text-amber-700">A: {globalSummary.soloHA}</span>
             <span className="text-slate-300">|</span>
             <span className="font-bold text-emerald-700">L: {globalSummary.soloHL}</span>
           </div>
 
           {/* Bot */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
-            <span className="font-bold text-slate-700">Bot:</span>
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs ${
+            filters.incluyeTodos && filters.canal === 'Bot'
+              ? 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-300'
+              : 'bg-white border-slate-200'
+          }`}>
+            <span className="font-bold text-slate-700">
+              Bot{filters.incluyeTodos && filters.canal === 'Bot' ? ' (+ Todos)' : ''}:
+            </span>
             <span className="font-bold text-amber-700">A: {globalSummary.botA}</span>
             <span className="text-slate-300">|</span>
             <span className="font-bold text-emerald-700">L: {globalSummary.botL}</span>
           </div>
 
           {/* Call */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
-            <span className="font-bold text-slate-700">Call:</span>
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs ${
+            filters.incluyeTodos && filters.canal === 'Call'
+              ? 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-300'
+              : 'bg-white border-slate-200'
+          }`}>
+            <span className="font-bold text-slate-700">
+              Call{filters.incluyeTodos && filters.canal === 'Call' ? ' (+ Todos)' : ''}:
+            </span>
             <span className="font-bold text-amber-700">A: {globalSummary.callA}</span>
             <span className="text-slate-300">|</span>
             <span className="font-bold text-emerald-700">L: {globalSummary.callL}</span>
@@ -431,18 +466,39 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({
               </th>
 
               {/* Canal: Sólo H. */}
-              <th colSpan={2} className="py-2 px-2 text-center border-r border-slate-200 bg-slate-100 font-extrabold text-slate-800">
-                Sólo H.
+              <th colSpan={2} className={`py-2 px-2 text-center border-r border-slate-200 font-extrabold ${
+                filters.canal === 'Sólo H.' || filters.canal === 'Solo H.'
+                  ? 'bg-blue-100/70 text-blue-950'
+                  : 'bg-slate-100 text-slate-800'
+              }`}>
+                <span>Sólo H.</span>
+                {filters.incluyeTodos && (filters.canal === 'Sólo H.' || filters.canal === 'Solo H.') && (
+                  <span className="block text-[9px] font-bold text-blue-700 leading-none mt-0.5">(+ Todos)</span>
+                )}
               </th>
 
               {/* Canal: Bot */}
-              <th colSpan={2} className="py-2 px-2 text-center border-r border-slate-200 bg-slate-100 font-extrabold text-slate-800">
-                Bot
+              <th colSpan={2} className={`py-2 px-2 text-center border-r border-slate-200 font-extrabold ${
+                filters.canal === 'Bot'
+                  ? 'bg-blue-100/70 text-blue-950'
+                  : 'bg-slate-100 text-slate-800'
+              }`}>
+                <span>Bot</span>
+                {filters.incluyeTodos && filters.canal === 'Bot' && (
+                  <span className="block text-[9px] font-bold text-blue-700 leading-none mt-0.5">(+ Todos)</span>
+                )}
               </th>
 
               {/* Canal: Call */}
-              <th colSpan={2} className="py-2 px-2 text-center border-r border-slate-200 bg-slate-100 font-extrabold text-slate-800">
-                Call
+              <th colSpan={2} className={`py-2 px-2 text-center border-r border-slate-200 font-extrabold ${
+                filters.canal === 'Call'
+                  ? 'bg-blue-100/70 text-blue-950'
+                  : 'bg-slate-100 text-slate-800'
+              }`}>
+                <span>Call</span>
+                {filters.incluyeTodos && filters.canal === 'Call' && (
+                  <span className="block text-[9px] font-bold text-blue-700 leading-none mt-0.5">(+ Todos)</span>
+                )}
               </th>
 
               {/* Total Row */}
