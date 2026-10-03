@@ -94,7 +94,7 @@ export async function saveDataToGoogleApi(data: {
     source: 'wcasarino_agendas_dashboard',
     user: 'wcasarino@gmail.com',
     timestamp: new Date().toISOString(),
-    fileName: data.fileName || 'AGENDAS FUTURAS.xlsx',
+    fileName: data.fileName || 'AGENDAS A 30 DÍAS.xlsx',
     totalTurnos: data.agendas.reduce((acc, curr) => acc + curr.turnos, 0),
     totalRegistros: data.agendas.length,
     lectura: {
@@ -105,10 +105,15 @@ export async function saveDataToGoogleApi(data: {
       dpto: item.dpto,
       caps: item.caps,
       fecha: item.fecha,
-      turno: item.turno,
       especialidad: item.especialidad,
       profesional: item.profesional,
+      estado: item.estado || 'General',
+      todos: Number(item.todos) || 0,
+      soloH: Number(item.soloH) || 0,
+      bot: Number(item.bot) || 0,
+      call: Number(item.call) || 0,
       turnos: Number(item.turnos) || 0,
+      turno: item.turno || 'General',
     })),
   };
 
@@ -235,6 +240,13 @@ export async function loadDataFromGoogleApi(): Promise<{
       const parsedDate = parseExcelDate(item.fecha);
       const iso = parsedDate ? parsedDate.iso : String(item.fecha);
       const original = parsedDate ? parsedDate.formatted : String(item.fecha);
+      const rowItem = item as Record<string, unknown>;
+
+      const todos = Number(rowItem.todos) || 0;
+      const soloH = Number(rowItem.soloH) || 0;
+      const bot = Number(rowItem.bot) || 0;
+      const call = Number(rowItem.call) || 0;
+      const rawTurnos = Math.max(0, parseInt(String(item.turnos), 10) || 0);
 
       return {
         id: item.id || `api-${idx}-${item.fecha}`,
@@ -243,10 +255,15 @@ export async function loadDataFromGoogleApi(): Promise<{
         fecha: iso,
         fechaOriginal: original,
         dateObj: parsedDate ? parsedDate.dateObj : new Date(iso),
-        turno: String(item.turno || 'General').trim(),
         especialidad: String(item.especialidad || 'General').trim(),
         profesional: String(item.profesional || 'No asignado').trim(),
-        turnos: Math.max(0, parseInt(String(item.turnos), 10) || 0),
+        estado: String(rowItem.estado || 'General').trim(),
+        todos: todos || (soloH === 0 && bot === 0 && call === 0 ? rawTurnos : 0),
+        soloH,
+        bot,
+        call,
+        turnos: rawTurnos || todos || soloH || bot || call,
+        turno: String(item.turno || 'General').trim(),
       };
     });
 
@@ -299,7 +316,7 @@ export async function testGoogleApiConnection(url: string): Promise<{ success: b
  */
 export const GOOGLE_APPS_SCRIPT_SAMPLE_CODE = `/**
  * API REST GRATUITA EN GOOGLE APPS SCRIPT (wcasarino@gmail.com)
- * Permite almacenar y consultar datos de Agendas Futuras de forma persistente y 100% gratuita.
+ * Permite almacenar y consultar datos de Agendas a 30 Días de forma persistente y 100% gratuita.
  * 
  * Instrucciones:
  * 1. Ve a https://script.google.com con tu cuenta wcasarino@gmail.com

@@ -173,54 +173,84 @@ export async function fetchGoogleSheetData(customUrlOrId?: string): Promise<Goog
     const parsedAgendas: AgendaItem[] = [];
     let totalTurnosCount = 0;
 
+    const parseNumber = (val: unknown): number => {
+      if (typeof val === 'number') return isNaN(val) ? 0 : Math.max(0, Math.round(val));
+      if (val === null || val === undefined) return 0;
+      const cleaned = String(val).replace(/[^0-9]/g, '');
+      return parseInt(cleaned, 10) || 0;
+    };
+
     for (let i = 0; i < agendasRows.length; i++) {
       const row = agendasRows[i];
 
-      // DPTO
+      // Col A: DPTO
       const dptoRaw = row['DPTO'] || row['dpto'] || row['DEPARTAMENTO'] || row['Departamento'] || '';
       const dpto = String(dptoRaw).trim().toUpperCase();
 
-      // CAPS
+      // Col B: CAPS
       const capsRaw = row['CAPS'] || row['caps'] || row['Centro'] || '';
       const caps = String(capsRaw).trim().toUpperCase();
 
       // Skip empty separator rows
       if (!dpto && !caps) continue;
 
-      // Fecha
+      // Col C: Fecha
       const fechaRaw = row['Fecha'] || row['FECHA'] || row['fecha'] || '';
       const dateParsed = parseExcelDate(fechaRaw);
       if (!dateParsed) continue;
 
-      // Turno
-      const turnoRaw = row['Turno'] || row['TURNO'] || row['turno'] || '';
-      const turno = String(turnoRaw).trim().toUpperCase();
-
-      // Especialidad
+      // Col D: Especialidad
       const espRaw = row['Especialidad'] || row['ESPECIALIDAD'] || row['especialidad'] || '';
       const especialidad = String(espRaw).trim();
 
-      // Profesional
+      // Col E: Profesional
       const profRaw = row['Profesional'] || row['PROFESIONAL'] || row['profesional'] || '';
       const profesional = String(profRaw).trim();
 
-      // Turnos
-      const turnosRaw = row['Turnos'] || row['TURNOS'] || row['turnos'] || 0;
-      const turnos = typeof turnosRaw === 'number' ? turnosRaw : parseInt(String(turnosRaw).replace(/[^\d]/g, ''), 10) || 0;
+      // Col F: Estado (Asignado, Libre, etc.)
+      const estadoRaw = row['Estado'] || row['ESTADO'] || row['estado'] || '';
+      const estado = String(estadoRaw).trim();
 
-      totalTurnosCount += turnos;
+      // Col G: Todos (número entero)
+      const todos = parseNumber(row['Todos'] ?? row['todos'] ?? row['TODOS']);
+
+      // Col H: Sólo H. (número entero)
+      const soloH = parseNumber(
+        row['Sólo H.'] ?? row['Solo H.'] ?? row['Sólo H'] ?? row['Solo H'] ?? row['SÓLO H.'] ?? row['SOLO H.']
+      );
+
+      // Col I: Bot (número entero)
+      const bot = parseNumber(row['Bot'] ?? row['BOT'] ?? row['bot']);
+
+      // Col J: Call (número entero)
+      const call = parseNumber(row['Call'] ?? row['CALL'] ?? row['call']);
+
+      // Fallback for legacy files that only had a single "Turnos" column
+      let legacyTurnos = 0;
+      if (todos === 0 && soloH === 0 && bot === 0 && call === 0 && (row['Turnos'] || row['turnos'])) {
+        legacyTurnos = parseNumber(row['Turnos'] || row['turnos']);
+      }
+
+      const activeTodos = todos || legacyTurnos;
+      // Default initial turnos representation
+      const initialTurnos = activeTodos || soloH || bot || call || 0;
+      totalTurnosCount += (todos + soloH + bot + call) || initialTurnos;
 
       parsedAgendas.push({
-        id: `gs-${i + 1}-${caps}-${dateParsed.iso}-${turno}`,
+        id: `gs-${i + 1}-${caps}-${dateParsed.iso}-${profesional.substring(0, 10)}`,
         dpto: dpto || 'SIN ESPECIFICAR',
         caps: caps || 'GENERAL',
         fecha: dateParsed.iso,
         fechaOriginal: dateParsed.formatted,
         dateObj: dateParsed.dateObj,
-        turno: turno || 'M',
         especialidad: especialidad || 'Medicina General',
         profesional: profesional || 'SIN PROFESIONAL ASIGNADO',
-        turnos,
+        estado: estado || 'General',
+        todos: activeTodos,
+        soloH,
+        bot,
+        call,
+        turnos: initialTurnos,
       });
     }
 

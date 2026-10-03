@@ -20,9 +20,10 @@ export function exportToExcel(options: ExportOptions, filename = 'Reporte_Agenda
   const dayAggregates = new Map<string, {
     fecha: string;
     totalTurnos: number;
-    manana: number;
-    tarde: number;
-    vespertino: number;
+    todos: number;
+    soloH: number;
+    bot: number;
+    call: number;
     capsCount: Set<string>;
     prosCount: Set<string>;
   }>();
@@ -33,26 +34,27 @@ export function exportToExcel(options: ExportOptions, filename = 'Reporte_Agenda
       agg = {
         fecha: item.fechaOriginal || item.fecha,
         totalTurnos: 0,
-        manana: 0,
-        tarde: 0,
-        vespertino: 0,
+        todos: 0,
+        soloH: 0,
+        bot: 0,
+        call: 0,
         capsCount: new Set<string>(),
         prosCount: new Set<string>(),
       };
       dayAggregates.set(item.fecha, agg);
     }
     agg.totalTurnos += item.turnos;
-    const tLower = item.turno.toLowerCase();
-    if (tLower.includes('mañana') || tLower.includes('manana')) agg.manana += item.turnos;
-    else if (tLower.includes('tarde')) agg.tarde += item.turnos;
-    else if (tLower.includes('vesp')) agg.vespertino += item.turnos;
+    agg.todos += item.todos || 0;
+    agg.soloH += item.soloH || 0;
+    agg.bot += item.bot || 0;
+    agg.call += item.call || 0;
     agg.capsCount.add(item.caps);
     agg.prosCount.add(item.profesional);
   });
 
   const sortedDates = Array.from(dayAggregates.keys()).sort();
   const resumenRows = [
-    ['Fecha', 'Día', 'Total Turnos', 'Turno Mañana', 'Turno Tarde', 'Turno Vespertino', 'CAPS Activos', 'Profesionales'],
+    ['Fecha', 'Día', 'Turnos Canal Activo', 'Todos (Col. G)', 'Sólo H. (Col. H)', 'Bot (Col. I)', 'Call (Col. J)', 'CAPS Activos', 'Profesionales'],
     ...sortedDates.map(isoDate => {
       const agg = dayAggregates.get(isoDate)!;
       const d = new Date(isoDate + 'T12:00:00');
@@ -65,9 +67,10 @@ export function exportToExcel(options: ExportOptions, filename = 'Reporte_Agenda
         agg.fecha,
         dayName,
         agg.totalTurnos,
-        agg.manana,
-        agg.tarde,
-        agg.vespertino,
+        agg.todos,
+        agg.soloH,
+        agg.bot,
+        agg.call,
         agg.capsCount.size,
         agg.prosCount.size,
       ];
@@ -78,24 +81,41 @@ export function exportToExcel(options: ExportOptions, filename = 'Reporte_Agenda
   wsResumen['!cols'] = [
     { wch: 14 },
     { wch: 8 },
+    { wch: 18 },
     { wch: 14 },
     { wch: 14 },
     { wch: 14 },
-    { wch: 16 },
+    { wch: 14 },
     { wch: 14 },
     { wch: 14 },
   ];
   XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen Diario');
 
   // 2. Detalle de Agendas Sheet
-  const agendasHeader = ['DPTO', 'CAPS', 'Fecha', 'Turno', 'Especialidad', 'Profesional', 'Turnos'];
+  const agendasHeader = [
+    'DPTO',
+    'CAPS',
+    'Fecha',
+    'Especialidad',
+    'Profesional',
+    'Estado',
+    'Todos (G)',
+    'Sólo H. (H)',
+    'Bot (I)',
+    'Call (J)',
+    `Turnos (${filters.canal || 'Todos'})`,
+  ];
   const agendasData = agendas.map(item => [
     item.dpto,
     item.caps,
     item.fechaOriginal || item.fecha,
-    item.turno,
     item.especialidad,
     item.profesional,
+    item.estado || 'Libre',
+    item.todos ?? 0,
+    item.soloH ?? 0,
+    item.bot ?? 0,
+    item.call ?? 0,
     item.turnos,
   ]);
   const wsAgendas = XLSX.utils.aoa_to_sheet([agendasHeader, ...agendasData]);
@@ -103,30 +123,33 @@ export function exportToExcel(options: ExportOptions, filename = 'Reporte_Agenda
     { wch: 18 },
     { wch: 28 },
     { wch: 14 },
-    { wch: 14 },
     { wch: 26 },
     { wch: 28 },
+    { wch: 14 },
     { wch: 12 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 16 },
   ];
   XLSX.utils.book_append_sheet(wb, wsAgendas, 'Detalle de Agendas');
 
   // 3. Metadata & Filtros Sheet
   const metaRows = [
-    ['REPORTE DE AGENDAS FUTURAS', ''],
+    ['REPORTE DE AGENDAS A 30 DÍAS', ''],
     ['Fecha de Generación', new Date().toLocaleString('es-AR')],
     ['Fecha de Lectura (Corte)', lectura.fechaOriginal],
     ['', ''],
     ['FILTROS APLICADOS', ''],
     ['Departamento (DPTO)', filters.dpto || 'Todos'],
     ['CAPS / Centro de Salud', filters.caps || 'Todos'],
-    ['Turno', filters.turno || 'Todos'],
+    ['Canal seleccionado', filters.canal || 'Todos'],
     ['Especialidad', filters.especialidad || 'Todas'],
     ['Profesional', filters.profesional || 'Todos'],
-    ['Búsqueda libre', filters.search || 'Ninguna'],
     ['Día seleccionado', selectedDate ? formatFriendlyDate(selectedDate) : 'Todos los días'],
     ['', ''],
     ['MÉTRICAS DEL REPORTE', ''],
-    ['Total de Turnos', agendas.reduce((acc, curr) => acc + curr.turnos, 0)],
+    ['Total Turnos (Canal Activo)', agendas.reduce((acc, curr) => acc + curr.turnos, 0)],
     ['Registros Detallados', agendas.length],
     ['Días con Agenda', sortedDates.length],
   ];
@@ -160,7 +183,7 @@ export function exportToPDF(options: ExportOptions, filename = 'Reporte_Agendas_
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('REPORTE DE AGENDAS FUTURAS', 14, 13);
+  doc.text('REPORTE DE AGENDAS A 30 DÍAS', 14, 13);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -182,7 +205,7 @@ export function exportToPDF(options: ExportOptions, filename = 'Reporte_Agendas_
   const fTextCol1 = [
     `DPTO: ${filters.dpto || 'Todos'}`,
     `CAPS: ${filters.caps || 'Todos'}`,
-    `Turno: ${filters.turno || 'Todos'}`,
+    `CANAL: ${filters.canal || 'Todos'}`,
   ].join('   |   ');
 
   const fTextCol2 = [
@@ -195,15 +218,14 @@ export function exportToPDF(options: ExportOptions, filename = 'Reporte_Agendas_
   doc.text(fTextCol2, 18, 50);
 
   // Summary Metrics Box
-  doc.setFillColor(248, 250, 252);
   const metricY = 58;
   const boxWidth = 43;
   const boxHeight = 16;
   const metrics = [
-    { label: 'TOTAL TURNOS', val: totalTurnos.toLocaleString('es-AR'), color: [2, 132, 199] }, // sky-600
-    { label: 'DÍAS AGENDADOS', val: String(uniqueDays), color: [16, 185, 129] }, // emerald-500
-    { label: 'CAPS ACTIVOS', val: String(uniqueCaps), color: [99, 102, 241] }, // indigo-500
-    { label: 'PROFESIONALES', val: String(uniquePros), color: [245, 158, 11] }, // amber-500
+    { label: 'TOTAL TURNOS', val: totalTurnos.toLocaleString('es-AR') },
+    { label: 'DÍAS AGENDADOS', val: String(uniqueDays) },
+    { label: 'CAPS ACTIVOS', val: String(uniqueCaps) },
+    { label: 'PROFESIONALES', val: String(uniquePros) },
   ];
 
   metrics.forEach((m, idx) => {
@@ -218,124 +240,74 @@ export function exportToPDF(options: ExportOptions, filename = 'Reporte_Agendas_
     doc.text(m.label, x + 4, metricY + 5);
 
     doc.setFontSize(13);
-    doc.setTextColor(m.color[0], m.color[1], m.color[2]);
-    doc.text(m.val, x + 4, metricY + 13);
-  });
-
-  // Section 1: Agregado por Día (or listado)
-  let startY = 80;
-
-  // If specific day selected, show detailed table directly
-  // Otherwise show Daily summary table, followed by detail
-  const daySummaryMap = new Map<string, { fecha: string; count: number; m: number; t: number; v: number }>();
-  agendas.forEach(a => {
-    let s = daySummaryMap.get(a.fecha);
-    if (!s) {
-      s = { fecha: a.fechaOriginal || a.fecha, count: 0, m: 0, t: 0, v: 0 };
-      daySummaryMap.set(a.fecha, s);
-    }
-    s.count += a.turnos;
-    const tl = a.turno.toLowerCase();
-    if (tl.includes('mañana') || tl.includes('manana')) s.m += a.turnos;
-    else if (tl.includes('tarde')) s.t += a.turnos;
-    else if (tl.includes('vesp')) s.v += a.turnos;
-  });
-
-  const dailyTableData = Array.from(daySummaryMap.keys()).sort().map(iso => {
-    const s = daySummaryMap.get(iso)!;
-    return [s.fecha, String(s.count), String(s.m), String(s.t), String(s.v)];
-  });
-
-  if (dailyTableData.length > 0 && !selectedDate) {
-    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text('Distribución Diaria de Turnos', 14, startY - 2);
+    doc.setTextColor(15, 23, 42);
+    doc.text(m.val, x + 4, metricY + 12);
+  });
 
-    autoTable(doc, {
-      startY: startY,
-      head: [['Fecha', 'Total Turnos', 'Mañana', 'Tarde', 'Vespertino']],
-      body: dailyTableData.slice(0, 20), // Show top rows in summary
-      theme: 'grid',
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: 255,
-        fontStyle: 'bold',
-        fontSize: 8,
-      },
-      bodyStyles: {
-        fontSize: 8,
-        textColor: 51,
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-      margin: { left: 14, right: 14 },
-    });
-
-    const finalY = (doc as any).lastAutoTable?.finalY || startY + 50;
-    startY = finalY + 10;
-  }
+  let startY = 82;
 
   // Section 2: Detailed Items Table
-  if (startY > 230) {
-    doc.addPage();
-    startY = 20;
-  }
-
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
   const detailTitle = selectedDate
-    ? `Detalle de Agendas del Día ${formatFriendlyDate(selectedDate)}`
-    : 'Detalle de Agendas (Muestra hasta 150 registros)';
+    ? `Detalle de Agendas del Día ${formatFriendlyDate(selectedDate)} (Canal: ${filters.canal || 'Todos'})`
+    : `Detalle de Agendas (Canal: ${filters.canal || 'Todos'} - Muestra hasta 150 registros)`;
   doc.text(detailTitle, 14, startY - 2);
 
   const detailRows = agendas.slice(0, 150).map(item => [
     item.dpto,
     item.caps,
     item.fechaOriginal || item.fecha,
-    item.turno,
     item.especialidad,
     item.profesional,
+    item.estado || 'Libre',
+    String(item.todos ?? 0),
+    String(item.soloH ?? 0),
+    String(item.bot ?? 0),
+    String(item.call ?? 0),
     String(item.turnos),
   ]);
 
   autoTable(doc, {
     startY: startY,
-    head: [['DPTO', 'CAPS', 'Fecha', 'Turno', 'Especialidad', 'Profesional', 'Turnos']],
+    head: [['DPTO', 'CAPS', 'Fecha', 'Especialidad', 'Profesional', 'Estado', 'Todos', 'Sólo H.', 'Bot', 'Call', 'Activo']],
     body: detailRows,
     theme: 'striped',
     headStyles: {
       fillColor: [14, 116, 144], // cyan-700
       textColor: 255,
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 7,
     },
     bodyStyles: {
-      fontSize: 7,
+      fontSize: 6.5,
       textColor: 51,
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 24 },
-      1: { cellWidth: 32 },
-      2: { cellWidth: 18 },
-      3: { cellWidth: 18 },
-      4: { cellWidth: 34 },
-      5: { cellWidth: 38 },
-      6: { cellWidth: 16, halign: 'right', fontStyle: 'bold' },
+      0: { cellWidth: 20 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 16 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 14 },
+      6: { cellWidth: 11, halign: 'right' },
+      7: { cellWidth: 11, halign: 'right' },
+      8: { cellWidth: 11, halign: 'right' },
+      9: { cellWidth: 11, halign: 'right' },
+      10: { cellWidth: 13, halign: 'right', fontStyle: 'bold' },
     },
     margin: { left: 14, right: 14, bottom: 15 },
     didDrawPage: data => {
-      // Footer page number
       const pageCount = doc.getNumberOfPages();
       doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);
       doc.text(
-        `Página ${data.pageNumber} de ${pageCount}  -  Sistema de Agendas Futuras`,
+        `Página ${data.pageNumber} de ${pageCount}  -  Sistema de Agendas a 30 Días`,
         14,
         290
       );

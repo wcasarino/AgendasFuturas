@@ -46,7 +46,7 @@ export default function App() {
   const [filters, setFilters] = useState<FilterState>({
     dpto: '',
     caps: '',
-    turno: '',
+    canal: 'Sólo H.',
     especialidad: '',
     profesional: '',
     search: '',
@@ -171,7 +171,7 @@ export default function App() {
     if (result.lectura && result.agendas) {
       const uploadedLectura = result.lectura;
       const uploadedAgendas = result.agendas;
-      const uploadedFileName = result.fileName || 'AGENDAS FUTURAS.xlsx';
+      const uploadedFileName = result.fileName || 'AGENDAS A 30 DÍAS.xlsx';
 
       // Actualizar memoria local en pantalla de inmediato
       setLectura(uploadedLectura);
@@ -183,7 +183,7 @@ export default function App() {
       setFilters({
         dpto: '',
         caps: '',
-        turno: '',
+        canal: 'Sólo H.',
         especialidad: '',
         profesional: '',
         search: '',
@@ -266,14 +266,14 @@ export default function App() {
     const fresh = generateSampleDataset();
     setLectura(fresh.lectura);
     setAllAgendas(fresh.agendas);
-    setActiveFileName('AGENDAS FUTURAS.xlsx (Plantilla Activa)');
+    setActiveFileName('AGENDAS A 30 DÍAS.xlsx (Plantilla Activa)');
     setIsCustomFile(false);
     setMonthOffset(0);
     setSelectedDate(fresh.lectura.fecha);
     setFilters({
       dpto: '',
       caps: '',
-      turno: '',
+      canal: 'Sólo H.',
       especialidad: '',
       profesional: '',
       search: '',
@@ -359,7 +359,7 @@ export default function App() {
   };
 
   const handleDownloadTemplate = () => {
-    downloadSampleExcel(lectura, allAgendas, 'AGENDAS FUTURAS.xlsx');
+    downloadSampleExcel(lectura, allAgendas, 'AGENDAS A 30 DÍAS.xlsx');
   };
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
@@ -370,30 +370,54 @@ export default function App() {
     setFilters({
       dpto: '',
       caps: '',
-      turno: '',
+      canal: 'Sólo H.',
       especialidad: '',
       profesional: '',
       search: '',
     });
   };
 
-  // Filter agendas according to active filters (Search filter removed)
+  // Helper to extract turnos for an item according to the active Canal
+  const getTurnosByCanal = (item: AgendaItem, canal: string): number => {
+    switch (canal) {
+      case 'Sólo H.':
+      case 'Solo H.':
+        return item.soloH ?? 0;
+      case 'Bot':
+        return item.bot ?? 0;
+      case 'Call':
+        return item.call ?? 0;
+      case 'Todos los Canales':
+        return (item.todos ?? 0) + (item.soloH ?? 0) + (item.bot ?? 0) + (item.call ?? 0);
+      case 'Todos':
+      default:
+        return item.todos ?? 0;
+    }
+  };
+
+  // Filter agendas according to active filters (Search filter removed, Turno replaced by Canal)
   const filteredAgendas = useMemo(() => {
-    return allAgendas.filter(item => {
-      if (filters.dpto && item.dpto !== filters.dpto) return false;
-      if (filters.caps && item.caps !== filters.caps) return false;
-      if (filters.turno && item.turno !== filters.turno) return false;
-      if (filters.especialidad && item.especialidad !== filters.especialidad) return false;
-      if (filters.profesional && item.profesional !== filters.profesional) return false;
-      return true;
-    });
-  }, [allAgendas, filters.dpto, filters.caps, filters.turno, filters.especialidad, filters.profesional]);
+    return allAgendas
+      .filter(item => {
+        if (filters.dpto && item.dpto !== filters.dpto) return false;
+        if (filters.caps && item.caps !== filters.caps) return false;
+        if (filters.especialidad && item.especialidad !== filters.especialidad) return false;
+        if (filters.profesional && item.profesional !== filters.profesional) return false;
+        return true;
+      })
+      .map(item => ({
+        ...item,
+        turnos: getTurnosByCanal(item, filters.canal || 'Todos'),
+      }));
+  }, [allAgendas, filters.dpto, filters.caps, filters.canal, filters.especialidad, filters.profesional]);
 
   // Aggregate turnos by date string from filteredAgendas (calendar reacts to active filters)
   const turnosByDateMap = useMemo(() => {
     const map = new Map<string, {
       total: number;
-      byTurno: Record<string, number>;
+      turnosAsignados: number;
+      turnosLibres: number;
+      byCanal: Record<string, number>;
       byEspecialidad: Record<string, number>;
       byCaps: Record<string, number>;
       items: AgendaItem[];
@@ -404,7 +428,9 @@ export default function App() {
       if (!agg) {
         agg = {
           total: 0,
-          byTurno: {},
+          turnosAsignados: 0,
+          turnosLibres: 0,
+          byCanal: {},
           byEspecialidad: {},
           byCaps: {},
           items: [],
@@ -412,7 +438,15 @@ export default function App() {
         map.set(item.fecha, agg);
       }
       agg.total += item.turnos;
-      agg.byTurno[item.turno] = (agg.byTurno[item.turno] || 0) + item.turnos;
+
+      const estadoNorm = (item.estado || '').toLowerCase().trim();
+      if (estadoNorm.includes('asig')) {
+        agg.turnosAsignados += item.turnos;
+      } else {
+        // 'Libre'
+        agg.turnosLibres += item.turnos;
+      }
+
       agg.byEspecialidad[item.especialidad] = (agg.byEspecialidad[item.especialidad] || 0) + item.turnos;
       agg.byCaps[item.caps] = (agg.byCaps[item.caps] || 0) + item.turnos;
       agg.items.push(item);
@@ -449,15 +483,21 @@ export default function App() {
   const month1Data: MonthCalendarData = useMemo(() => {
     const gridCells = buildMonthCalendarGrid(year1, month1Idx);
     let totalTurnos = 0;
+    let totalAsignados = 0;
+    let totalLibres = 0;
     let daysWithTurnos = 0;
 
     const days: DayAggregation[] = gridCells.map(cell => {
       const agg = turnosByDateMap.get(cell.dateStr);
       const cellTurnos = agg ? agg.total : 0;
+      const cellAsignados = agg ? agg.turnosAsignados : 0;
+      const cellLibres = agg ? agg.turnosLibres : 0;
       const hasTurnos = cellTurnos > 0;
 
       if (cell.isCurrentMonth && hasTurnos) {
         totalTurnos += cellTurnos;
+        totalAsignados += cellAsignados;
+        totalLibres += cellLibres;
         daysWithTurnos++;
       }
 
@@ -466,10 +506,12 @@ export default function App() {
         dateObj: cell.dateObj,
         dayNumber: cell.dayNumber,
         totalTurnos: cellTurnos,
+        turnosAsignados: cellAsignados,
+        turnosLibres: cellLibres,
         hasTurnos,
         isLecturaDate: cell.dateStr === lectura.fecha,
         isCurrentMonth: cell.isCurrentMonth,
-        byTurno: agg ? agg.byTurno : {},
+        byCanal: agg ? agg.byCanal : {},
         byEspecialidad: agg ? agg.byEspecialidad : {},
         byCaps: agg ? agg.byCaps : {},
         items: agg ? agg.items : [],
@@ -483,6 +525,8 @@ export default function App() {
       yearMonthKey: `${year1}-${String(month1Idx + 1).padStart(2, '0')}`,
       days,
       totalTurnos,
+      totalAsignados,
+      totalLibres,
       workingDaysWithTurnos: daysWithTurnos,
     };
   }, [year1, month1Idx, turnosByDateMap, lectura.fecha]);
@@ -491,15 +535,21 @@ export default function App() {
   const month2Data: MonthCalendarData = useMemo(() => {
     const gridCells = buildMonthCalendarGrid(year2, month2Idx);
     let totalTurnos = 0;
+    let totalAsignados = 0;
+    let totalLibres = 0;
     let daysWithTurnos = 0;
 
     const days: DayAggregation[] = gridCells.map(cell => {
       const agg = turnosByDateMap.get(cell.dateStr);
       const cellTurnos = agg ? agg.total : 0;
+      const cellAsignados = agg ? agg.turnosAsignados : 0;
+      const cellLibres = agg ? agg.turnosLibres : 0;
       const hasTurnos = cellTurnos > 0;
 
       if (cell.isCurrentMonth && hasTurnos) {
         totalTurnos += cellTurnos;
+        totalAsignados += cellAsignados;
+        totalLibres += cellLibres;
         daysWithTurnos++;
       }
 
@@ -508,10 +558,12 @@ export default function App() {
         dateObj: cell.dateObj,
         dayNumber: cell.dayNumber,
         totalTurnos: cellTurnos,
+        turnosAsignados: cellAsignados,
+        turnosLibres: cellLibres,
         hasTurnos,
         isLecturaDate: cell.dateStr === lectura.fecha,
         isCurrentMonth: cell.isCurrentMonth,
-        byTurno: agg ? agg.byTurno : {},
+        byCanal: agg ? agg.byCanal : {},
         byEspecialidad: agg ? agg.byEspecialidad : {},
         byCaps: agg ? agg.byCaps : {},
         items: agg ? agg.items : [],
@@ -525,6 +577,8 @@ export default function App() {
       yearMonthKey: `${year2}-${String(month2Idx + 1).padStart(2, '0')}`,
       days,
       totalTurnos,
+      totalAsignados,
+      totalLibres,
       workingDaysWithTurnos: daysWithTurnos,
     };
   }, [year2, month2Idx, turnosByDateMap, lectura.fecha]);
@@ -556,23 +610,11 @@ export default function App() {
       {/* Global Header */}
       <Header
         lectura={lectura}
-        activeFileName={activeFileName}
         totalFilteredTurnos={totalFilteredTurnos}
         totalRawTurnos={totalRawTurnos}
-        onOpenUpload={handleOpenUploadProtected}
-        onDownloadTemplate={handleDownloadTemplate}
         onOpenExport={() => setIsExportModalOpen(true)}
-        isCustomFile={isCustomFile}
-        onOpenFirebase={() => setIsFirebaseModalOpen(true)}
-        lastFirebaseSync={lastFirebaseSync}
-        isLocalMemoryLoaded={true}
         onRefreshGoogleSheet={handleRefreshGoogleSheet}
         isFetchingGoogleSheet={isFetchingGoogleSheet}
-        onOpenGoogleSheetsModal={handleOpenConfigProtected}
-        onOpenSpreadsheet={handleOpenSpreadsheetProtected}
-        lastGoogleSheetSync={lastGoogleSheetSync}
-        isAdminAuthenticated={isAdminAuthenticated}
-        onLockAdmin={handleLockAdmin}
       />
 
       {/* Main Content Area */}
@@ -631,6 +673,7 @@ export default function App() {
             setSelectedDate(lectura.fecha);
           }}
           isCustomOffset={monthOffset !== 0}
+          activeCanal={filters.canal || 'Todos'}
         />
 
         {/* Detailed Drilldown Table */}

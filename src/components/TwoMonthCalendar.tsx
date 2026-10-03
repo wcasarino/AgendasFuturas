@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Bookmark, Calendar as CalendarIcon } from 'lucide-react';
+import { Bookmark, Calendar as CalendarIcon } from 'lucide-react';
 import { MonthCalendarData } from '../types';
 import { SPANISH_DAYS_SHORT } from '../utils/dateUtils';
 
@@ -9,10 +9,11 @@ interface TwoMonthCalendarProps {
   lecturaDateIso: string;
   selectedDate: string | null;
   onSelectDate: (dateStr: string | null) => void;
-  onPrevMonths: () => void;
-  onNextMonths: () => void;
-  onResetToLecturaMonth: () => void;
-  isCustomOffset: boolean;
+  onPrevMonths?: () => void;
+  onNextMonths?: () => void;
+  onResetToLecturaMonth?: () => void;
+  isCustomOffset?: boolean;
+  activeCanal?: string;
 }
 
 export const TwoMonthCalendar: React.FC<TwoMonthCalendarProps> = ({
@@ -21,102 +22,72 @@ export const TwoMonthCalendar: React.FC<TwoMonthCalendarProps> = ({
   lecturaDateIso,
   selectedDate,
   onSelectDate,
-  onPrevMonths,
-  onNextMonths,
-  onResetToLecturaMonth,
-  isCustomOffset,
+  activeCanal = 'Todos',
 }) => {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-6 mb-6">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-3.5 sm:p-5 mb-5">
       
-      {/* Calendar Header with Month Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-100">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-blue-600" />
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              Calendarios de Agendas Futuras
-            </h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Suma de turnos diarios (Col. G) para el mes de corte de Lectura y el mes siguiente. Haga clic en cualquier día para ver el detalle.
-          </p>
+      {/* Unified Single-Line Header: Title + All References on the Same Line to minimize vertical space */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-2.5 mb-3 border-b border-slate-100">
+        
+        {/* Left: Title + Canal Badge */}
+        <div className="flex items-center gap-2 shrink-0">
+          <CalendarIcon className="w-5 h-5 text-blue-600 shrink-0" />
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight whitespace-nowrap">
+            Calendarios de Agendas a 30 Días
+          </h2>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 whitespace-nowrap">
+            Canal: {activeCanal}
+          </span>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          {isCustomOffset && (
-            <button
-              id="btn-reset-lectura-month"
-              onClick={onResetToLecturaMonth}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer"
-            >
-              Ir a Mes de Lectura
-            </button>
-          )}
+        {/* Right / Inline: Referencias compactas en la misma línea */}
+        <div className="flex items-center gap-2.5 sm:gap-3.5 flex-wrap text-xs text-slate-600">
+          <span className="font-bold text-slate-800 text-xs">Referencia:</span>
 
-          <div className="flex items-center rounded-lg border border-slate-200 p-0.5 bg-slate-50">
-            <button
-              id="btn-prev-months"
-              onClick={onPrevMonths}
-              title="Meses anteriores"
-              className="p-1.5 rounded-md hover:bg-white text-slate-600 hover:text-slate-900 transition-colors shadow-2xs hover:shadow-xs cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="h-4 w-px bg-slate-200 mx-0.5" />
-            <button
-              id="btn-next-months"
-              onClick={onNextMonths}
-              title="Meses siguientes"
-              className="p-1.5 rounded-md hover:bg-white text-slate-600 hover:text-slate-900 transition-colors shadow-2xs hover:shadow-xs cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Legend & Hint */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 pb-3 mb-4 border-b border-slate-100/80">
-        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-          <span className="font-bold text-slate-800">Referencia:</span>
-          
-          <div className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-md bg-blue-600 border border-blue-700 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
-              #
+          <div className="flex items-center gap-1">
+            <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-amber-300 font-black text-[10px] shadow-2xs">
+              A: #
             </span>
-            <span className="text-xs font-semibold text-slate-700">
-              Cantidad de turnos
+            <span className="text-xs font-semibold text-amber-800">
+              A: Asignados
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-400 font-mono text-xs flex items-center justify-center">
+          <div className="flex items-center gap-1">
+            <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-emerald-300 font-black text-[10px] shadow-2xs">
+              L: #
+            </span>
+            <span className="text-xs font-semibold text-emerald-800">
+              L: Libres
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <span className="w-4 h-4 rounded bg-white border border-slate-300 text-slate-400 font-mono text-[11px] flex items-center justify-center">
               —
             </span>
             <span className="text-xs text-slate-500">Sin turnos</span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+          <div className="flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
             <Bookmark className="w-3 h-3 fill-amber-500 text-amber-600" />
-            Fecha de Lectura
-          </span>
+            <span>Fecha de Lectura</span>
+          </div>
+
           {selectedDate && (
             <button
               onClick={() => onSelectDate(null)}
-              className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline ml-2 cursor-pointer"
+              className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 underline ml-1 cursor-pointer"
             >
-              Deseleccionar día
+              Quitar selección
             </button>
           )}
         </div>
       </div>
 
       {/* The Two Calendars Grid Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         
         {/* Calendar 1: Mes de Lectura */}
         <SingleMonthCalendarView
@@ -180,12 +151,18 @@ const SingleMonthCalendarView: React.FC<SingleMonthCalendarViewProps> = ({
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Total Mes</span>
-          <div>
-            <span className="text-lg font-black text-slate-900 tracking-tight">
-              {calendarData.totalTurnos.toLocaleString('es-AR')}
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Total Mes</span>
+          <div className="flex items-center justify-end gap-2 flex-wrap">
+            <span className="text-xs sm:text-sm font-bold text-slate-700">
+              Total: {calendarData.totalTurnos.toLocaleString('es-AR')}
             </span>
-            <span className="text-xs font-black text-slate-700 ml-1">T</span>
+            <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              A: {calendarData.totalAsignados?.toLocaleString('es-AR') || 0}
+            </span>
+            {/* L highlighted with greater size */}
+            <span className="text-base sm:text-lg font-black text-emerald-700 bg-emerald-100/90 px-2.5 py-0.5 rounded-lg border-2 border-emerald-400 shadow-xs tracking-tight">
+              L: {calendarData.totalLibres?.toLocaleString('es-AR') || 0}
+            </span>
           </div>
         </div>
       </div>
@@ -212,7 +189,7 @@ const SingleMonthCalendarView: React.FC<SingleMonthCalendarViewProps> = ({
             return (
               <div
                 key={day.dateStr}
-                className="min-h-[64px] sm:min-h-[72px] p-1.5 sm:p-2 rounded-xl border border-transparent select-none pointer-events-none"
+                className="min-h-[68px] sm:min-h-[76px] p-1.5 sm:p-2 rounded-xl border border-transparent select-none pointer-events-none"
                 aria-hidden="true"
               />
             );
@@ -222,16 +199,16 @@ const SingleMonthCalendarView: React.FC<SingleMonthCalendarViewProps> = ({
           const isLectura = day.dateStr === lecturaDateIso;
           const hasTurnos = day.hasTurnos || day.totalTurnos > 0;
 
-          // Color calculation: intense color if hasTurnos, white/slate if no turnos
+          // Color calculation: dark slate card with vivid A and L text if hasTurnos, white/slate if no turnos
           let cellStyle = '';
           if (hasTurnos) {
-            cellStyle = 'bg-blue-600 hover:bg-blue-700 border-blue-700 text-white shadow-xs';
+            cellStyle = 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-white shadow-xs';
           } else {
             cellStyle = 'bg-white border-slate-200/80 text-slate-400 hover:bg-slate-50 hover:border-slate-300';
           }
 
           if (isSelected) {
-            cellStyle += ' ring-3 ring-amber-400 ring-offset-2 z-10';
+            cellStyle += ' ring-3 ring-blue-500 ring-offset-2 z-10';
           }
 
           return (
@@ -239,10 +216,11 @@ const SingleMonthCalendarView: React.FC<SingleMonthCalendarViewProps> = ({
               key={day.dateStr}
               type="button"
               onClick={() => onSelectDate(isSelected ? null : day.dateStr)}
-              className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-xl border text-center min-h-[64px] sm:min-h-[72px] transition-all cursor-pointer ${cellStyle}`}
+              title={`Día ${day.dayNumber}: Asignados (A): ${day.turnosAsignados}, Libres (L): ${day.turnosLibres}, Total: ${day.totalTurnos}`}
+              className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border text-center min-h-[68px] sm:min-h-[76px] transition-all cursor-pointer ${cellStyle}`}
             >
               {/* Day number (top-left) */}
-              <span className={`absolute top-1.5 left-2 text-xs font-bold ${hasTurnos ? 'text-white' : 'text-slate-600'}`}>
+              <span className={`absolute top-1 left-1.5 text-[11px] font-bold ${hasTurnos ? 'text-slate-300' : 'text-slate-600'}`}>
                 {day.dayNumber}
               </span>
 
@@ -250,19 +228,24 @@ const SingleMonthCalendarView: React.FC<SingleMonthCalendarViewProps> = ({
               {isLectura && (
                 <span
                   title="Fecha de Lectura"
-                  className="absolute top-1.5 right-1.5 flex items-center justify-center"
+                  className="absolute top-1 right-1 flex items-center justify-center"
                 >
                   <Bookmark className="w-3.5 h-3.5 fill-amber-400 text-amber-300 drop-shadow-xs" />
                 </span>
               )}
 
-              {/* Middle and centered: quantity of turnos if has turnos, or — if no turnos */}
+              {/* Day contents: A: valor, L: valor with distinct colors */}
               {hasTurnos ? (
-                <span className="text-sm sm:text-base font-black tracking-tight leading-none text-white drop-shadow-xs">
-                  {day.totalTurnos.toLocaleString('es-AR')}
-                </span>
+                <div className="flex flex-col items-center justify-center w-full pt-3">
+                  <span className="text-[11px] sm:text-xs font-black tracking-tight leading-tight text-amber-300 drop-shadow-xs">
+                    A: {day.turnosAsignados.toLocaleString('es-AR')}
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-black tracking-tight leading-tight text-emerald-300 drop-shadow-xs">
+                    L: {day.turnosLibres.toLocaleString('es-AR')}
+                  </span>
+                </div>
               ) : (
-                <span className="text-xs sm:text-sm font-mono text-slate-300 leading-none">
+                <span className="text-xs sm:text-sm font-mono text-slate-300 leading-none pt-2">
                   —
                 </span>
               )}

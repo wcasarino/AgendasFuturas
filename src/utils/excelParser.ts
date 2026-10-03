@@ -16,7 +16,7 @@ export interface ParseResult {
 }
 
 /**
- * Parses the uploaded AGENDAS FUTURAS.xlsx file
+ * Parses the uploaded AGENDAS A 30 DÍAS.xlsx file
  */
 export async function parseAgendasExcel(file: File): Promise<ParseResult> {
   try {
@@ -145,10 +145,16 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
       dpto: 0,
       caps: 1,
       fecha: 2,
-      turno: 3,
-      especialidad: 4,
-      profesional: 5,
-      turnos: 6,
+      especialidad: 3,
+      profesional: 4,
+      estado: 5,
+      todos: 6,
+      soloH: 7,
+      bot: 8,
+      call: 9,
+      // legacy support
+      turno: -1,
+      turnos: -1,
     };
 
     // Check first 5 rows to see if headers exist
@@ -159,24 +165,37 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
         const hasDpto = strRow.some(s => s.includes('dpto') || s.includes('departamento'));
         const hasCaps = strRow.some(s => s.includes('caps') || s.includes('centro'));
         const hasFecha = strRow.some(s => s.includes('fecha'));
-        const hasTurnos = strRow.some(s => s.includes('turno'));
+        const hasCanales = strRow.some(s => s.includes('todos') || s.includes('bot') || s.includes('call') || s.includes('h.'));
 
-        if (hasDpto || hasCaps || hasFecha || hasTurnos) {
+        if (hasDpto || hasCaps || hasFecha || hasCanales) {
           headerRowIdx = r;
           // Map column indices dynamically if headers present
           strRow.forEach((colName, idx) => {
-            if (colName.includes('dpto') || colName.includes('departamento')) colIndices.dpto = idx;
-            else if (colName.includes('caps') || colName.includes('centro') || colName.includes('efector')) colIndices.caps = idx;
-            else if (colName.includes('fecha')) colIndices.fecha = idx;
-            else if (colName === 'turno' || (colName.includes('turno') && !colName.includes('turnos'))) colIndices.turno = idx;
-            else if (colName.includes('especialidad') || colName.includes('servicio')) colIndices.especialidad = idx;
-            else if (colName.includes('profesional') || colName.includes('médico') || colName.includes('medico') || colName.includes('doctor')) colIndices.profesional = idx;
-            else if (colName.includes('turnos') || colName.includes('cantidad') || colName.includes('cupos')) colIndices.turnos = idx;
+            const clean = colName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (clean.includes('dpto') || clean.includes('departamento')) colIndices.dpto = idx;
+            else if (clean.includes('caps') || clean.includes('centro') || clean.includes('efector')) colIndices.caps = idx;
+            else if (clean.includes('fecha')) colIndices.fecha = idx;
+            else if (clean.includes('especialidad') || clean.includes('servicio')) colIndices.especialidad = idx;
+            else if (clean.includes('profesional') || clean.includes('medico') || clean.includes('doctor')) colIndices.profesional = idx;
+            else if (clean.includes('estado')) colIndices.estado = idx;
+            else if (clean === 'todos') colIndices.todos = idx;
+            else if (clean.includes('solo h') || clean.includes('solo-h') || clean.includes('soloh')) colIndices.soloH = idx;
+            else if (clean === 'bot' || clean.includes('bot')) colIndices.bot = idx;
+            else if (clean === 'call' || clean.includes('call')) colIndices.call = idx;
+            else if (clean === 'turno' || (clean.includes('turno') && !clean.includes('turnos'))) colIndices.turno = idx;
+            else if (clean.includes('turnos') || clean.includes('cantidad') || clean.includes('cupos')) colIndices.turnos = idx;
           });
           break;
         }
       }
     }
+
+    const parseNum = (val: unknown): number => {
+      if (typeof val === 'number') return isNaN(val) ? 0 : Math.max(0, Math.round(val));
+      if (val === null || val === undefined) return 0;
+      const cleaned = String(val).replace(/[^0-9]/g, '');
+      return parseInt(cleaned, 10) || 0;
+    };
 
     const agendas: AgendaItem[] = [];
     let idCounter = 1;
@@ -189,10 +208,15 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
       const rawDpto = row[colIndices.dpto];
       const rawCaps = row[colIndices.caps];
       const rawFecha = row[colIndices.fecha];
-      const rawTurno = row[colIndices.turno];
       const rawEspecialidad = row[colIndices.especialidad];
       const rawProfesional = row[colIndices.profesional];
-      const rawTurnos = row[colIndices.turnos];
+      const rawEstado = colIndices.estado >= 0 ? row[colIndices.estado] : '';
+      const rawTodos = colIndices.todos >= 0 ? row[colIndices.todos] : 0;
+      const rawSoloH = colIndices.soloH >= 0 ? row[colIndices.soloH] : 0;
+      const rawBot = colIndices.bot >= 0 ? row[colIndices.bot] : 0;
+      const rawCall = colIndices.call >= 0 ? row[colIndices.call] : 0;
+      const rawLegacyTurno = colIndices.turno >= 0 ? row[colIndices.turno] : '';
+      const rawLegacyTurnos = colIndices.turnos >= 0 ? row[colIndices.turnos] : 0;
 
       // Parse date
       const parsedDate = parseExcelDate(rawFecha);
@@ -201,14 +225,14 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
         continue;
       }
 
-      // Parse turnos number
-      let turnosNum = 0;
-      if (typeof rawTurnos === 'number') {
-        turnosNum = Math.max(0, Math.round(rawTurnos));
-      } else if (rawTurnos !== undefined && rawTurnos !== null) {
-        const cleaned = String(rawTurnos).replace(/[^0-9]/g, '');
-        turnosNum = parseInt(cleaned, 10) || 0;
-      }
+      const todosNum = parseNum(rawTodos);
+      const soloHNum = parseNum(rawSoloH);
+      const botNum = parseNum(rawBot);
+      const callNum = parseNum(rawCall);
+      const legacyTurnosNum = parseNum(rawLegacyTurnos);
+
+      const activeTodos = todosNum || (soloHNum === 0 && botNum === 0 && callNum === 0 ? legacyTurnosNum : 0);
+      const initialTurnos = activeTodos || soloHNum || botNum || callNum || legacyTurnosNum;
 
       agendas.push({
         id: `row-${r}-${idCounter++}`,
@@ -217,17 +241,22 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
         fecha: parsedDate.iso,
         fechaOriginal: parsedDate.formatted,
         dateObj: parsedDate.dateObj,
-        turno: String(rawTurno || 'General').trim(),
         especialidad: String(rawEspecialidad || 'General').trim(),
         profesional: String(rawProfesional || 'Sin Profesional').trim(),
-        turnos: turnosNum,
+        estado: String(rawEstado || 'General').trim(),
+        todos: activeTodos,
+        soloH: soloHNum,
+        bot: botNum,
+        call: callNum,
+        turnos: initialTurnos,
+        turno: String(rawLegacyTurno || 'General').trim(),
       });
     }
 
     if (agendas.length === 0) {
       return {
         success: false,
-        error: 'No se pudieron extraer registros válidos de la hoja "Agendas". Verifique que las columnas A a G contengan los datos en el orden esperado.',
+        error: 'No se pudieron extraer registros válidos de la hoja "Agendas". Verifique que las columnas contengan los datos en el orden esperado (DPTO, CAPS, Fecha, Especialidad, Profesional, Estado, Todos, Sólo H., Bot, Call).',
       };
     }
 
@@ -235,7 +264,7 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
       warnings.push(`Se omitieron ${skippedRows} filas con fechas inválidas o vacías.`);
     }
 
-    const totalTurnos = agendas.reduce((acc, curr) => acc + curr.turnos, 0);
+    const totalTurnos = agendas.reduce((acc, curr) => acc + (curr.todos + curr.soloH + curr.bot + curr.call || curr.turnos), 0);
 
     return {
       success: true,
@@ -258,10 +287,10 @@ export async function parseAgendasExcel(file: File): Promise<ParseResult> {
 }
 
 /**
- * Creates and downloads a complete sample Excel file "AGENDAS FUTURAS.xlsx"
+ * Creates and downloads a complete sample Excel file "AGENDAS A 30 DÍAS.xlsx"
  * with both sheets "Lectura" and "Agendas" pre-populated.
  */
-export function downloadSampleExcel(lectura: LecturaData, agendas: AgendaItem[], filename = 'AGENDAS FUTURAS.xlsx') {
+export function downloadSampleExcel(lectura: LecturaData, agendas: AgendaItem[], filename = 'AGENDAS A 30 DÍAS.xlsx') {
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Lectura
@@ -275,25 +304,31 @@ export function downloadSampleExcel(lectura: LecturaData, agendas: AgendaItem[],
   XLSX.utils.book_append_sheet(wb, wsLectura, 'Lectura');
 
   // Sheet 2: Agendas
-  const agendasHeader = ['DPTO', 'CAPS', 'Fecha', 'Turno', 'Especialidad', 'Profesional', 'Turnos'];
+  const agendasHeader = ['DPTO', 'CAPS', 'Fecha', 'Especialidad', 'Profesional', 'Estado', 'Todos', 'Sólo H.', 'Bot', 'Call'];
   const agendasData = agendas.map(item => [
     item.dpto,
     item.caps,
     item.fechaOriginal,
-    item.turno,
     item.especialidad,
     item.profesional,
-    item.turnos,
+    item.estado || 'Libre',
+    item.todos ?? 0,
+    item.soloH ?? 0,
+    item.bot ?? 0,
+    item.call ?? 0,
   ]);
   const wsAgendas = XLSX.utils.aoa_to_sheet([agendasHeader, ...agendasData]);
   wsAgendas['!cols'] = [
     { wch: 18 },
     { wch: 28 },
     { wch: 14 },
-    { wch: 14 },
     { wch: 26 },
     { wch: 28 },
-    { wch: 12 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 },
   ];
   XLSX.utils.book_append_sheet(wb, wsAgendas, 'Agendas');
 

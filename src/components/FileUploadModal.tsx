@@ -139,7 +139,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
               </h3>
               <p className="text-xs text-slate-500">
                 {isAuthenticated
-                  ? 'AGENDAS FUTURAS.xlsx (Hojas: Lectura y Agendas)'
+                  ? 'AGENDAS A 30 DÍAS.xlsx (Hojas: Lectura y Agendas)'
                   : 'Ingrese la contraseña para habilitar la importación'}
               </p>
             </div>
@@ -163,7 +163,7 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                 Contraseña de Seguridad Requerida
               </h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Para importar el archivo <strong>AGENDAS FUTURAS.xlsx</strong> y actualizar los datos del sistema, ingrese la contraseña de acceso.
+                Para importar el archivo <strong>AGENDAS A 30 DÍAS.xlsx</strong> y actualizar los datos del sistema, ingrese la contraseña de acceso.
               </p>
             </div>
 

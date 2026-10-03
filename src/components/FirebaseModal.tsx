@@ -133,7 +133,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
         onDataLoaded({
           lectura: res.lectura,
           agendas: res.agendas,
-          fileName: res.fileName || 'AGENDAS FUTURAS.xlsx',
+          fileName: res.fileName || 'AGENDAS A 30 DÍAS.xlsx',
         });
         onShowNotification({
           type: 'success',
@@ -357,7 +357,7 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
               <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
                 <div className="flex items-center gap-1">
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="truncate max-w-[200px]">{statusInfo.fileName || 'AGENDAS FUTURAS.xlsx'}</span>
+                  <span className="truncate max-w-[200px]">{statusInfo.fileName || 'AGENDAS A 30 DÍAS.xlsx'}</span>
                 </div>
                 <span>
                   Actualizado: {new Date(statusInfo.updatedAt).toLocaleString('es-AR', {

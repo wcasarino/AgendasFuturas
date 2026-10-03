@@ -75,6 +75,11 @@ export function generateSampleDataset(): { lectura: LecturaData; agendas: Agenda
 
         // Realistic turnos count per shift slot (e.g. 8 to 22)
         const turnosCount = 8 + ((day * 5 + s * 3) % 15);
+        const estado = (day + s) % 3 === 0 ? 'Asignado' : 'Libre';
+        const todos = Math.round(turnosCount * 0.1);
+        const soloH = Math.round(turnosCount * 0.45);
+        const bot = Math.round(turnosCount * 0.25);
+        const call = Math.max(0, turnosCount - todos - soloH - bot);
 
         agendas.push({
           id: `sample-${idCounter++}`,
@@ -83,10 +88,15 @@ export function generateSampleDataset(): { lectura: LecturaData; agendas: Agenda
           fecha: parsed.iso,
           fechaOriginal: parsed.formatted,
           dateObj: parsed.dateObj,
-          turno,
           especialidad,
           profesional,
+          estado,
+          todos,
+          soloH,
+          bot,
+          call,
           turnos: turnosCount,
+          turno,
         });
       }
     }

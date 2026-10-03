@@ -145,7 +145,7 @@ export async function saveExcelSheetsToFirebase(params: {
       lectura,
       agendas,
       lecturaRows,
-      fileName = 'AGENDAS FUTURAS.xlsx',
+      fileName = 'AGENDAS A 30 DÍAS.xlsx',
     } = params;
 
     // 1. Previo a la carga: Borrar todos los documentos de las colecciones Lectura y Agendas
@@ -200,10 +200,15 @@ export async function saveExcelSheetsToFirebase(params: {
         caps: item.caps,
         fecha: item.fecha,
         fechaOriginal: item.fechaOriginal,
-        turno: item.turno,
         especialidad: item.especialidad,
         profesional: item.profesional,
-        turnos: item.turnos,
+        estado: item.estado || 'General',
+        todos: item.todos ?? 0,
+        soloH: item.soloH ?? 0,
+        bot: item.bot ?? 0,
+        call: item.call ?? 0,
+        turnos: item.turnos ?? 0,
+        turno: item.turno || 'General',
         updatedAt: timestamp,
       });
 
@@ -322,7 +327,7 @@ export async function loadDatasetToPCMemory(): Promise<FirebaseLoadResult> {
 
       return {
         success: false,
-        message: 'No se encontraron datos en las colecciones de Firebase. Carga tu archivo AGENDAS FUTURAS.xlsx para comenzar.',
+        message: 'No se encontraron datos en las colecciones de Firebase. Carga tu archivo AGENDAS A 30 DÍAS.xlsx para comenzar.',
       };
     }
 
@@ -358,6 +363,12 @@ export async function loadDatasetToPCMemory(): Promise<FirebaseLoadResult> {
       const iso = parsedDate ? parsedDate.iso : rawFecha;
       const original = parsedDate ? parsedDate.formatted : (data.fechaOriginal || rawFecha);
 
+      const todos = Number(data.todos) || 0;
+      const soloH = Number(data.soloH) || 0;
+      const bot = Number(data.bot) || 0;
+      const call = Number(data.call) || 0;
+      const rawTurnos = Math.max(0, parseInt(String(data.turnos), 10) || 0);
+
       agendasList.push({
         id: docSnap.id || `ag-${index}`,
         dpto: String(data.dpto || 'SIN DPTO').trim().toUpperCase(),
@@ -365,10 +376,15 @@ export async function loadDatasetToPCMemory(): Promise<FirebaseLoadResult> {
         fecha: iso,
         fechaOriginal: original,
         dateObj: parsedDate ? parsedDate.dateObj : new Date(iso),
-        turno: String(data.turno || 'General').trim(),
         especialidad: String(data.especialidad || 'General').trim(),
         profesional: String(data.profesional || 'No asignado').trim(),
-        turnos: Math.max(0, parseInt(String(data.turnos), 10) || 0),
+        estado: String(data.estado || 'General').trim(),
+        todos: todos || (soloH === 0 && bot === 0 && call === 0 ? rawTurnos : 0),
+        soloH,
+        bot,
+        call,
+        turnos: rawTurnos || todos || soloH || bot || call,
+        turno: String(data.turno || 'General').trim(),
       });
     });
 
@@ -380,7 +396,7 @@ export async function loadDatasetToPCMemory(): Promise<FirebaseLoadResult> {
       : `v_${Date.now()}`;
     const fileName = syncDocSnap.exists()
       ? (syncDocSnap.data() as FirebaseSyncMeta).fileName
-      : 'AGENDAS FUTURAS.xlsx';
+      : 'AGENDAS A 30 DÍAS.xlsx';
 
     // 4. Guardar en la memoria local (IndexedDB) de la PC
     await saveDatasetToLocalCache({

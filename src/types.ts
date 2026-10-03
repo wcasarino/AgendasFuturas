@@ -1,14 +1,21 @@
+export type CanalType = 'Todos' | 'Sólo H.' | 'Bot' | 'Call' | 'Todos los Canales';
+
 export interface AgendaItem {
   id: string;
   dpto: string;
   caps: string;
   fecha: string; // ISO format YYYY-MM-DD
-  fechaOriginal?: string; // dd/mm/aaaa as read from Excel
+  fechaOriginal?: string; // dd/mm/aaaa as read from sheet
   dateObj: Date;
-  turno: string; // Mañana, Tarde, Vespertino, etc.
   especialidad: string;
   profesional: string;
-  turnos: number;
+  estado: string; // Col F: Asignado, Libre, etc.
+  todos: number; // Col G: número entero
+  soloH: number; // Col H: número entero ("Sólo H.")
+  bot: number; // Col I: número entero ("Bot")
+  call: number; // Col J: número entero ("Call")
+  turnos: number; // Suma/valor activo según el canal seleccionado
+  turno?: string; // Legacy compatibility
 }
 
 export interface LecturaData {
@@ -20,10 +27,12 @@ export interface LecturaData {
 export interface FilterState {
   dpto: string;
   caps: string;
-  turno: string;
+  canal: string; // 'Todos' | 'Sólo H.' | 'Bot' | 'Call' | 'Todos los Canales'
   especialidad: string;
   profesional: string;
+  estado?: string; // Optional filter by Estado ('Libre', 'Asignado', etc.)
   search: string;
+  turno?: string; // Legacy compatibility
 }
 
 export interface DayAggregation {
@@ -31,10 +40,13 @@ export interface DayAggregation {
   dateObj: Date;
   dayNumber: number;
   totalTurnos: number;
+  turnosAsignados: number; // Suma de turnos con Estado "Asignado"
+  turnosLibres: number; // Suma de turnos con Estado "Libre"
   hasTurnos: boolean;
   isLecturaDate: boolean;
   isCurrentMonth: boolean;
-  byTurno: Record<string, number>;
+  byCanal?: Record<string, number>;
+  byTurno?: Record<string, number>;
   byEspecialidad: Record<string, number>;
   byCaps: Record<string, number>;
   items: AgendaItem[];
@@ -47,5 +59,7 @@ export interface MonthCalendarData {
   yearMonthKey: string; // "YYYY-MM"
   days: DayAggregation[];
   totalTurnos: number;
+  totalAsignados: number;
+  totalLibres: number;
   workingDaysWithTurnos: number;
 }
