@@ -44,10 +44,13 @@ export const Header: React.FC<HeaderProps> = ({
               <Calendar className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                   Agendas a 30 Días
                 </h1>
+                <span className="inline-flex items-center text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200 shadow-2xs">
+                  Desarrollado por Ing. Walter Casarino
+                </span>
               </div>
 
               <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
