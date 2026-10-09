@@ -11,6 +11,26 @@ interface FilterBarProps {
   totalFilteredTurnos: number;
 }
 
+// Helper to calculate turnos for an item according to the active Canal and optional incluyeTodos
+const getTurnosVal = (item: AgendaItem, canal: string, incluyeTodos = false): number => {
+  const isEligible = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(canal);
+  const addTodos = isEligible && incluyeTodos ? (item.todos ?? 0) : 0;
+  switch (canal) {
+    case 'Sólo H.':
+    case 'Solo H.':
+      return (item.soloH ?? 0) + addTodos;
+    case 'Bot':
+      return (item.bot ?? 0) + addTodos;
+    case 'Call':
+      return (item.call ?? 0) + addTodos;
+    case 'Todos los Canales':
+      return (item.todos ?? 0) + (item.soloH ?? 0) + (item.bot ?? 0) + (item.call ?? 0);
+    case 'Todos':
+    default:
+      return item.todos ?? 0;
+  }
+};
+
 export const FilterBar: React.FC<FilterBarProps> = ({
   filters,
   onFilterChange,
@@ -20,9 +40,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   totalFilteredTurnos,
 }) => {
   // Helper to filter agendas with current filters, ignoring specified keys
+  // CRITICAL: only considers rows that have turnos > 0 in the corresponding CANAL
   const getFiltered = React.useCallback(
     (ignoredKeys: (keyof FilterState)[] = []): AgendaItem[] => {
+      const activeCanal = filters.canal || 'Sólo H.';
+      const incluyeTodos = Boolean(filters.incluyeTodos);
+
       return allAgendas.filter(item => {
+        // Must have > 0 turnos in the active Canal
+        if (getTurnosVal(item, activeCanal, incluyeTodos) <= 0) {
+          return false;
+        }
+
         if (!ignoredKeys.includes('dpto') && filters.dpto && item.dpto !== filters.dpto) {
           return false;
         }
@@ -50,7 +79,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   );
 
   // Extract unique sorted options from matching agendas in cascade
-  // DPTO: Shows all DPTOs matching active filters
+  // DPTO: Shows all DPTOs matching active filters with turnos > 0 in the active channel
   const dptos = React.useMemo(() => {
     const matching = getFiltered(['dpto', 'caps']);
     const set = new Set<string>();
@@ -58,7 +87,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     return Array.from(set).sort();
   }, [getFiltered]);
 
-  // CAPS: Dynamically filtered by DPTO, Especialidad, Profesional
+  // CAPS: Dynamically filtered by DPTO, Especialidad, Profesional, and active Canal > 0
   const capsList = React.useMemo(() => {
     const matching = getFiltered(['caps']);
     const set = new Set<string>();
@@ -66,7 +95,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     return Array.from(set).sort();
   }, [getFiltered]);
 
-  // Especialidad: Dynamically filtered by DPTO, CAPS, Profesional
+  // Especialidad: Dynamically filtered by DPTO, CAPS, Profesional, and active Canal > 0
   const especialidades = React.useMemo(() => {
     const matching = getFiltered(['especialidad']);
     const set = new Set<string>();
@@ -74,7 +103,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     return Array.from(set).sort();
   }, [getFiltered]);
 
-  // Profesional: Dynamically filtered by DPTO, CAPS, Especialidad
+  // Profesional: Dynamically filtered by DPTO, CAPS, Especialidad, and active Canal > 0
   const profesionales = React.useMemo(() => {
     const matching = getFiltered(['profesional']);
     const set = new Set<string>();
@@ -86,61 +115,79 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   const handleSelectChange = (newPartial: Partial<FilterState>) => {
     const merged: FilterState = { ...filters, ...newPartial };
 
-    // 1. If DPTO was changed
-    if ('dpto' in newPartial) {
-      if (merged.caps) {
-        const capsStillValid = allAgendas.some(
-          a => (!merged.dpto || a.dpto === merged.dpto) && a.caps === merged.caps
-        );
-        if (!capsStillValid) {
-          merged.caps = '';
-        }
+    // 1. If CANAL or INCLUYE_TODOS was changed:
+    if ('canal' in newPartial || 'incluyeTodos' in newPartial) {
+      const isNewEligible = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(merged.canal || '');
+      if (!isNewEligible) {
+        merged.incluyeTodos = false;
       }
     }
 
-    // 2. If CAPS was changed and selected, infer DPTO if not already set
+    const targetCanal = merged.canal || 'Sólo H.';
+    const targetIncluyeTodos = Boolean(merged.incluyeTodos);
+
+    // 2. Validate DPTO has turnos > 0 in this channel
+    if (merged.dpto) {
+      const dptoStillValid = allAgendas.some(
+        a => a.dpto === merged.dpto && getTurnosVal(a, targetCanal, targetIncluyeTodos) > 0
+      );
+      if (!dptoStillValid) {
+        merged.dpto = '';
+        merged.caps = '';
+      }
+    }
+
+    // 3. Validate CAPS has turnos > 0 in this channel
+    if (merged.caps) {
+      const capsStillValid = allAgendas.some(
+        a =>
+          (!merged.dpto || a.dpto === merged.dpto) &&
+          a.caps === merged.caps &&
+          getTurnosVal(a, targetCanal, targetIncluyeTodos) > 0
+      );
+      if (!capsStillValid) {
+        merged.caps = '';
+      }
+    }
+
+    // 4. If CAPS was changed and selected, infer DPTO if not already set
     if ('caps' in newPartial && newPartial.caps) {
       if (!merged.dpto) {
-        const matched = allAgendas.find(a => a.caps === newPartial.caps);
+        const matched = allAgendas.find(
+          a => a.caps === newPartial.caps && getTurnosVal(a, targetCanal, targetIncluyeTodos) > 0
+        );
         if (matched?.dpto) {
           merged.dpto = matched.dpto;
         }
       }
     }
 
-    // 3. Check if 'profesional' is still valid with the new filter combinations
-    if (merged.profesional && !('profesional' in newPartial)) {
-      const stillValid = allAgendas.some(
+    // 5. Check if 'especialidad' is still valid with the new filter combinations and canal turnos > 0
+    if (merged.especialidad) {
+      const espStillValid = allAgendas.some(
         a =>
           (!merged.dpto || a.dpto === merged.dpto) &&
           (!merged.caps || a.caps === merged.caps) &&
-          (!merged.especialidad || a.especialidad === merged.especialidad) &&
-          a.profesional === merged.profesional
+          a.especialidad === merged.especialidad &&
+          getTurnosVal(a, targetCanal, targetIncluyeTodos) > 0
       );
-      if (!stillValid) {
-        merged.profesional = '';
-      }
-    }
-
-    // 4. Check if 'especialidad' is still valid with the new filter combinations
-    if (merged.especialidad && !('especialidad' in newPartial)) {
-      const stillValid = allAgendas.some(
-        a =>
-          (!merged.dpto || a.dpto === merged.dpto) &&
-          (!merged.caps || a.caps === merged.caps) &&
-          (!merged.profesional || a.profesional === merged.profesional) &&
-          a.especialidad === merged.especialidad
-      );
-      if (!stillValid) {
+      if (!espStillValid) {
         merged.especialidad = '';
       }
     }
 
-    // 5. If CANAL was changed and is not eligible for 'Incluye Todos', turn off incluyeTodos
-    if ('canal' in newPartial) {
-      const isNewEligible = ['Sólo H.', 'Solo H.', 'Bot', 'Call'].includes(newPartial.canal || '');
-      if (!isNewEligible) {
-        merged.incluyeTodos = false;
+    // 6. Check if 'profesional' is still valid with the new filter combinations and canal turnos > 0
+    if (merged.profesional) {
+      const profStillValid = allAgendas.some(
+        a =>
+          (!merged.dpto || a.dpto === merged.dpto) &&
+          (!merged.caps || a.caps === merged.caps) &&
+          (!merged.especialidad || a.especialidad === merged.especialidad) &&
+          a.profesional === merged.profesional &&
+          getTurnosVal(a, targetCanal, targetIncluyeTodos) > 0
+      );
+      if (!profStillValid) {
+        merged.profesional = '';
       }
     }
 

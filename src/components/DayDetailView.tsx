@@ -148,7 +148,23 @@ export const DayDetailView: React.FC<DayDetailViewProps> = ({
       });
     }
 
-    return Array.from(map.values());
+    const allGrouped = Array.from(map.values());
+    return allGrouped.filter(row => {
+      switch (filters.canal) {
+        case 'Sólo H.':
+        case 'Solo H.':
+          return (row.soloHA + row.soloHL) > 0;
+        case 'Bot':
+          return (row.botA + row.botL) > 0;
+        case 'Call':
+          return (row.callA + row.callL) > 0;
+        case 'Todos':
+          return (row.todosA + row.todosL) > 0;
+        case 'Todos los Canales':
+        default:
+          return row.totalRow > 0;
+      }
+    });
   }, [activeItems, isSingleDay, filters.canal, filters.incluyeTodos]);
 
   // Global summary of the current view

@@ -403,6 +403,7 @@ export default function App() {
   };
 
   // Filter agendas according to active filters (Search filter removed, Turno replaced by Canal)
+  // Only keeps rows that have turnos > 0 in the corresponding CANAL
   const filteredAgendas = useMemo(() => {
     return allAgendas
       .filter(item => {
@@ -415,7 +416,8 @@ export default function App() {
       .map(item => ({
         ...item,
         turnos: getTurnosByCanal(item, filters.canal || 'Sólo H.', filters.incluyeTodos),
-      }));
+      }))
+      .filter(item => item.turnos > 0);
   }, [allAgendas, filters.dpto, filters.caps, filters.canal, filters.incluyeTodos, filters.especialidad, filters.profesional]);
 
   // Aggregate turnos by date string from filteredAgendas (calendar reacts to active filters)
